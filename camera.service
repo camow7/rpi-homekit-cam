@@ -1,0 +1,12 @@
+[Unit]
+Description=Camera Service
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/root/rpi-homekit-cam
+ExecStart=/usr/bin/python3 /root/rpi-homekit-cam/main.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

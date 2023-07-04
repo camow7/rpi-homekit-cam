@@ -12,6 +12,7 @@ The font location has to be updated according to your system.
 import logging
 import signal
 import subprocess
+import cv2
 
 from pyhap.accessory_driver import AccessoryDriver
 from pyhap import camera
@@ -72,8 +73,25 @@ options = {
 }
 
 class HAPCamera(camera.Camera):
-    def get_snapshot(self, image_size):  # pylint: disable=unused-argument, no-self-use
-        """Return a JPEG snapshot from the camera."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.motion_detected = False
+        self.background_subtractor = cv2.createBackgroundSubtractorMOG2()
+        self.is_running = True
+
+    def motion_detection(self, frame):
+        threshold = 500
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        mask = self.background_subtractor.apply(gray)
+        motion_area = cv2.countNonZero(mask)
+        motion_detected = motion_area > threshold  # Set your desired threshold value
+        if motion_detected and not self.motion_detected:
+            print("Motion detected")
+        elif not motion_detected and self.motion_detected:
+            print("Motion stopped")
+        self.motion_detected = motion_detected
+
+    def get_snapshot(self, image_size):
         cmd = [
             'ffmpeg', '-f', 'video4linux2', '-i', DEV_VIDEO,
             '-update', '1', '-y', '-vframes', '1',
@@ -83,6 +101,24 @@ class HAPCamera(camera.Camera):
         returncode = subprocess.run(cmd)
         with open(FILE_SNAPSHOT, 'rb') as fp:
             return fp.read()
+
+    def run(self):
+        cap = cv2.VideoCapture(0)  # Use the correct device ID for your camera
+
+        while self.is_running:
+            ret, frame = cap.read()
+
+            if ret:
+                self.motion_detection(frame)
+
+                # Provide the frame as snapshot to HomeKit
+                self.snapshot = frame
+
+        cap.release()
+        cv2.destroyAllWindows()
+
+    def stop(self):
+        self.is_running = False
 
 
 # Start the accessory on port 51826
