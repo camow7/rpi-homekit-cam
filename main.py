@@ -1,33 +1,22 @@
-"""Implementation of a HAP Camera
-Modifications for current system:
-FILE_SNAPSHOT   = '/tmp/snapshot.jpg'
-FILE_PERSISTENT = '/var/lib/hap-python/accessory.state'
-DEV_VIDEO       = '/dev/video0'
-SCALE		= '640x480'
-IP_ADDRESS      = '192.168.1.2'
-
-Note that the snapshot function adds a timestamp to the last image.
-The font location has to be updated according to your system.
-"""
 import logging
 import signal
 import subprocess
 import cv2
 
 from pyhap.accessory_driver import AccessoryDriver
+from pyhap.accessory import Accessory
+from pyhap.const import CATEGORY_SENSOR
 from pyhap import camera
 
 logging.basicConfig(level=logging.INFO, format="[%(module)s] %(message)s")
 
-FILE_SNAPSHOT   = './snapshot.jpg'
+FILE_SNAPSHOT = './snapshot.jpg'
 FILE_PERSISTENT = './accessory.state'
-DEV_VIDEO       = '/dev/video0'
-SCALE           = '1280x720'
-DATE_CAPTION    = '%A %-d %B %Y, %X'
-IP_ADDRESS      = '192.168.0.197'
+DEV_VIDEO = '/dev/video100'
+SCALE = '1280x720'
+DATE_CAPTION = '%A %-d %B %Y, %X'
+IP_ADDRESS = '192.168.0.197'
 
-# Specify the audio and video configuration that your device can support
-# The HAP client will choose from these when negotiating a session.
 options = {
     "video": {
         "codec": {
@@ -43,8 +32,7 @@ options = {
             ],
         },
         "resolutions": [
-            # Width, Height, framerate
-            [320, 240, 15],  # Required for Apple Watch
+            [320, 240, 15],
             [1280, 720, 30],
         ],
     },
@@ -62,22 +50,30 @@ options = {
     },
     "srtp": True,
     "address": IP_ADDRESS,
-    "start_stream_cmd":  (
-      'ffmpeg -re -f video4linux2 -i ' + DEV_VIDEO + ' -threads 4 '
-      '-vcodec h264_omx -an -pix_fmt yuv420p -r {fps} '
-      '-b:v 2M -bufsize 2M '
-      '-payload_type 99 -ssrc {v_ssrc} -f rtp '
-      '-srtp_out_suite AES_CM_128_HMAC_SHA1_80 -srtp_out_params {v_srtp_key} '
-      'srtp://{address}:{v_port}?rtcpport={v_port}&'
-      'localrtcpport={v_port}&pkt_size=1316'),
+    "start_stream_cmd": (
+        'ffmpeg -re -f video4linux2 -i ' + DEV_VIDEO + ' -threads 4 '
+        '-vcodec h264_omx -an -pix_fmt yuv420p -r {fps} '
+        '-b:v 2M -bufsize 2M '
+        '-payload_type 99 -ssrc {v_ssrc} -f rtp '
+        '-srtp_out_suite AES_CM_128_HMAC_SHA1_80 -srtp_out_params {v_srtp_key} '
+        'srtp://{address}:{v_port}?rtcpport={v_port}&'
+        'localrtcpport={v_port}&pkt_size=1316'),
 }
 
-class HAPCamera(camera.Camera):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+
+class HAPCamera(camera.Camera, Accessory):
+    category = CATEGORY_SENSOR  # Specify as a sensor category device
+    def __init__(self, options, driver, name):
+        Accessory.__init__(self, driver, name)
+        camera.Camera.__init__(self, options, driver, name)
+
         self.motion_detected = False
         self.background_subtractor = cv2.createBackgroundSubtractorMOG2()
         self.is_running = True
+
+        # Create a Motion Sensor service
+        serv_motion = self.add_preload_service('MotionSensor')
+        self.char_detected = serv_motion.configure_char('MotionDetected')
 
     def motion_detection(self, frame):
         threshold = 500
@@ -87,8 +83,10 @@ class HAPCamera(camera.Camera):
         motion_detected = motion_area > threshold  # Set your desired threshold value
         if motion_detected and not self.motion_detected:
             print("Motion detected")
+            self.char_detected.set_value(True)  # Notify HomeKit motion detected
         elif not motion_detected and self.motion_detected:
             print("Motion stopped")
+            self.char_detected.set_value(False)  # Notify HomeKit motion stopped
         self.motion_detected = motion_detected
 
     def get_snapshot(self, image_size):
@@ -103,10 +101,10 @@ class HAPCamera(camera.Camera):
             return fp.read()
 
     def run(self):
-        cap = cv2.VideoCapture(0)  # Use the correct device ID for your camera
+        self.cap = cv2.VideoCapture("/dev/video100")  # Use the correct device ID for your camera
 
         while self.is_running:
-            ret, frame = cap.read()
+            ret, frame = self.cap.read()
 
             if ret:
                 self.motion_detection(frame)
@@ -114,20 +112,18 @@ class HAPCamera(camera.Camera):
                 # Provide the frame as snapshot to HomeKit
                 self.snapshot = frame
 
-        cap.release()
+        self.cap.release()
         cv2.destroyAllWindows()
 
     def stop(self):
         self.is_running = False
+        if self.cap is not None:
+            self.cap.release()
 
 
-# Start the accessory on port 51826
 driver = AccessoryDriver(port=51826, persist_file=FILE_PERSISTENT)
 acc = HAPCamera(options, driver, "Camera")
 driver.add_accessory(accessory=acc)
 
-# We want KeyboardInterrupts and SIGTERM (terminate) to be handled by the driver itself,
-# so that it can gracefully stop the accessory, server and advertising.
 signal.signal(signal.SIGTERM, driver.signal_handler)
-# Start it!
 driver.start()
