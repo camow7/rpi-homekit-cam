@@ -15,7 +15,7 @@ FILE_PERSISTENT = './accessory.state'
 DEV_VIDEO = '/dev/video100'
 SCALE = '1280x720'
 DATE_CAPTION = '%A %-d %B %Y, %X'
-IP_ADDRESS = '192.168.0.196'
+IP_ADDRESS = '192.168.0.77'
 
 options = {
     "video": {
@@ -52,7 +52,7 @@ options = {
     "address": IP_ADDRESS,
     "start_stream_cmd": (
         'ffmpeg -re -f video4linux2 -i ' + DEV_VIDEO + ' -threads 4 '
-        '-vcodec h264_omx -an -pix_fmt yuv420p -r {fps} '
+        '-vcodec h264_v4l2m2m -an -pix_fmt yuv420p -r {fps} '
         '-b:v 2M -bufsize 2M '
         '-payload_type 99 -ssrc {v_ssrc} -f rtp '
         '-srtp_out_suite AES_CM_128_HMAC_SHA1_80 -srtp_out_params {v_srtp_key} '
@@ -102,7 +102,7 @@ class HAPCamera(camera.Camera, Accessory):
             return fp.read()
 
     def run(self):
-        self.cap = cv2.VideoCapture("/dev/video100")  # Use the correct device ID for your camera , apiPreference=cv2.CAP_V4L2
+        self.cap = cv2.VideoCapture("/dev/video100", apiPreference=cv2.CAP_V4L2)  # Use the correct device ID for your camera , apiPreference=cv2.CAP_V4L2
 
         while self.is_running:
             ret, frame = self.cap.read()

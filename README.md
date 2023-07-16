@@ -8,7 +8,7 @@
  1. Git clone this repo
  1. install kernel headers - ` sudo apt install raspberrypi-kernel-headers`
  1. Install OpenCV for python - `sudo apt install python3-opencv`. I don't have this in my pip requirements as I have the "wheel" fails often.
- 1. Install Python HAP deps - `sudo apt-get install libavahi-compat-libdnssd-dev` and `pip install HAP-python[QRCode]`
+ 1. Install Python HAP deps - `sudo apt-get install libavahi-compat-libdnssd-dev` and `pip install HAP-python[QRCode]`. Had trouble with the `cryptography` wheel and needed to install Rust `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh` and `libssl-dev`.
  1. install FFMPEG - `sudo apt install -y ffmpeg` ([Issue](#ffmpeg-with-bookworm))
  1. Install v4l2 for video loop back - `sudo apt-get install v4l2loopback-dkms` and `sudo apt-get install v4l-utils`
  1. enable at boot - `/etc/modules-load.d/v4l2loopback.conf` and add `v4l2loopback`
