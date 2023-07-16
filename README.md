@@ -8,7 +8,7 @@
  1. Git clone this repo
  1. install kernel headers - ` sudo apt install raspberrypi-kernel-headers`
  1. Install OpenCV for python - `sudo apt install python3-opencv`. I don't have this in my pip requirements as I have the "wheel" fails often.
- 1. Install Python HAP deps - `$ sudo apt-get install libavahi-compat-libdnssd-dev`
+ 1. Install Python HAP deps - `sudo apt-get install libavahi-compat-libdnssd-dev` and `pip install HAP-python[QRCode]`
  1. install FFMPEG - `sudo apt install -y ffmpeg` ([Issue](#ffmpeg-with-bookworm))
  1. Install v4l2 for video loop back - `sudo apt-get install v4l2loopback-dkms` and `sudo apt-get install v4l-utils`
  1. enable at boot - `/etc/modules-load.d/v4l2loopback.conf` and add `v4l2loopback`
@@ -49,7 +49,6 @@ ffmpeg -f video4linux2 -i /dev/video0 -vcodec copy -map 0 -f v4l2 /dev/video99 -
 ```
 
 ## Creating Extra Video Streams
-1. `sudo apt-get install v4l2loopback-dkms`
 1. `sudo nano /etc/modprobe.d/v4l2loopback.conf`
 1. Add this so it creates extra video devices on boot `options v4l2loopback video_nr=99,100`
 

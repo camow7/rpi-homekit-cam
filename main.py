@@ -102,7 +102,7 @@ class HAPCamera(camera.Camera, Accessory):
             return fp.read()
 
     def run(self):
-        self.cap = cv2.VideoCapture("/dev/video100", apiPreference=cv2.CAP_V4L2)  # Use the correct device ID for your camera
+        self.cap = cv2.VideoCapture("/dev/video100")  # Use the correct device ID for your camera , apiPreference=cv2.CAP_V4L2
 
         while self.is_running:
             ret, frame = self.cap.read()
