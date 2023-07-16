@@ -15,7 +15,7 @@ FILE_PERSISTENT = './accessory.state'
 DEV_VIDEO = '/dev/video100'
 SCALE = '1280x720'
 DATE_CAPTION = '%A %-d %B %Y, %X'
-IP_ADDRESS = '192.168.0.197'
+IP_ADDRESS = 'localhost'
 
 options = {
     "video": {
