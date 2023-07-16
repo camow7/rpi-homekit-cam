@@ -15,7 +15,7 @@ FILE_PERSISTENT = './accessory.state'
 DEV_VIDEO = '/dev/video100'
 SCALE = '1280x720'
 DATE_CAPTION = '%A %-d %B %Y, %X'
-IP_ADDRESS = 'localhost'
+IP_ADDRESS = '192.168.0.196'
 
 options = {
     "video": {
@@ -70,6 +70,7 @@ class HAPCamera(camera.Camera, Accessory):
         self.motion_detected = False
         self.background_subtractor = cv2.createBackgroundSubtractorMOG2()
         self.is_running = True
+        self.cap = None  # Add this line to initialize self.cap
 
         # Create a Motion Sensor service
         serv_motion = self.add_preload_service('MotionSensor')
@@ -101,7 +102,7 @@ class HAPCamera(camera.Camera, Accessory):
             return fp.read()
 
     def run(self):
-        self.cap = cv2.VideoCapture("/dev/video100")  # Use the correct device ID for your camera
+        self.cap = cv2.VideoCapture("/dev/video100", apiPreference=cv2.CAP_V4L2)  # Use the correct device ID for your camera
 
         while self.is_running:
             ret, frame = self.cap.read()
