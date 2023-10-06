@@ -2,11 +2,13 @@ import logging
 import signal
 import subprocess
 import cv2
+import os
 
 from pyhap.accessory_driver import AccessoryDriver
 from pyhap.accessory import Accessory
 from pyhap.const import CATEGORY_SENSOR
 from pyhap import camera
+import datetime
 
 logging.basicConfig(level=logging.INFO, format="[%(module)s] %(message)s")
 
@@ -15,7 +17,8 @@ FILE_PERSISTENT = './accessory.state'
 DEV_VIDEO = '/dev/video100'
 SCALE = '1280x720'
 DATE_CAPTION = '%A %-d %B %Y, %X'
-IP_ADDRESS = '192.168.0.77'
+IP_ADDRESS = '192.168.0.196'
+IMAGE_DIR = '/home/camow7/rpi-homekit-cam/nas'
 
 options = {
     "video": {
@@ -77,7 +80,7 @@ class HAPCamera(camera.Camera, Accessory):
         self.char_detected = serv_motion.configure_char('MotionDetected')
 
     def motion_detection(self, frame):
-        threshold = 500
+        threshold = 2000
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         mask = self.background_subtractor.apply(gray)
         motion_area = cv2.countNonZero(mask)
@@ -85,6 +88,12 @@ class HAPCamera(camera.Camera, Accessory):
         if motion_detected and not self.motion_detected:
             print("Motion detected")
             self.char_detected.set_value(True)  # Notify HomeKit motion detected
+                        # Save the frame as an image
+            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')  # Format the current date and time as a string
+            filename = f"{IMAGE_DIR}/{timestamp}.jpg"  # Form the filename using the timestamp
+            cv2.imwrite(filename, frame)  # Save the frame as an image
+            print(os.listdir('./nas'))
+            
         elif not motion_detected and self.motion_detected:
             print("Motion stopped")
             self.char_detected.set_value(False)  # Notify HomeKit motion stopped
