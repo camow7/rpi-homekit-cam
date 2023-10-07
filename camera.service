@@ -4,8 +4,8 @@ After=network.target camow7_ffmpeg.service
 
 [Service]
 Type=simple
-WorkingDirectory=/home/camow7/rpi-homekit-cam/main.py-cam/
-ExecStart=/usr/bin/python3 /home/camow7/rpi-homekit-cam/main.py-cam/main.py
+WorkingDirectory=/home/camow7/rpi-homekit-cam/        
+ExecStart=/usr/bin/python3 /home/camow7/rpi-homekit-cam/main.py
 User=camow7
 Restart=always
 RestartSec=3
