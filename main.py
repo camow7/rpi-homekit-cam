@@ -10,6 +10,7 @@ from pyhap.const import CATEGORY_SENSOR
 from pyhap import camera
 import datetime
 import time
+import shutil
 
 logging.basicConfig(level=logging.INFO, format="[%(module)s] %(message)s")
 
@@ -21,6 +22,10 @@ DATE_CAPTION = '%A %-d %B %Y, %X'
 IP_ADDRESS = '192.168.0.196'
 IMAGE_DIR = '/home/camow7/rpi-homekit-cam/local/stills'
 VIDEO_DIR = '/home/camow7/rpi-homekit-cam/local/video'
+SECONDARY_DIR_VIDEO = '/home/camow7/rpi-homekit-cam/nas/cameras/garage/video'
+SECONDARY_DIR_IMAGE = '/home/camow7/rpi-homekit-cam/nas/cameras/garage/stills'
+
+
 
 options = {
     "video": {
@@ -72,7 +77,7 @@ class HAPCamera(camera.Camera, Accessory):
     def __init__(self, options, driver, name):
         Accessory.__init__(self, driver, name)
         camera.Camera.__init__(self, options, driver, name)
-
+        self.current_video_file_path = ""
         self.motion_detected = False
         self.background_subtractor = cv2.createBackgroundSubtractorMOG2()
         self.is_running = True
@@ -92,7 +97,7 @@ class HAPCamera(camera.Camera, Accessory):
 
         print("Full video path to write:", os.path.abspath(filename))
         print("Directory exists:", os.path.exists(directory))
-
+        self.current_video_file_path = filename
 
         cmd = [
             'ffmpeg', '-f', 'video4linux2', '-i', DEV_VIDEO,
@@ -101,12 +106,15 @@ class HAPCamera(camera.Camera, Accessory):
             filename
         ]
         self.recording_process = subprocess.Popen(cmd)
+
     
     # New method to stop recording
     def stop_recording(self):
         if self.recording_process:
             self.recording_process.terminate()
             self.recording_process = None
+            self.recording_process.wait()  # Wait for the process to complete
+            self.copy_to_secondary_directory(self.current_video_file_path, is_video=True) 
 
     def delete_old_files_from_directory(self, directory):
         current_time = time.time()
@@ -126,6 +134,30 @@ class HAPCamera(camera.Camera, Accessory):
     def delete_old_images(self):
         self.delete_old_files_from_directory(IMAGE_DIR)
 
+    def sync_directories(primary_dir, secondary_dir):
+        for root, _, files in os.walk(primary_dir):
+            for file in files:
+                primary_path = os.path.join(root, file)
+                rel_path = os.path.relpath(primary_path, primary_dir)
+                secondary_path = os.path.join(secondary_dir, rel_path)
+
+                if not os.path.exists(secondary_path):
+                    os.makedirs(os.path.dirname(secondary_path), exist_ok=True)
+                    shutil.copy2(primary_path, secondary_path)
+                    print(f"Copied missing file {primary_path} to {secondary_path}")
+    #function that backs up to NAS
+    def copy_to_secondary_directory(source_file_path, is_video=True):
+        if is_video:
+            rel_path = os.path.relpath(source_file_path, VIDEO_DIR)
+            dest_path = os.path.join(SECONDARY_DIR_VIDEO, rel_path)
+        else:
+            rel_path = os.path.relpath(source_file_path, IMAGE_DIR)
+            dest_path = os.path.join(SECONDARY_DIR_IMAGE, rel_path)
+
+        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+        shutil.copy2(source_file_path, dest_path)
+
+
     def motion_detection(self, frame):
         h, w, _ = frame.shape
         blob = cv2.dnn.blobFromImage(frame, 1.0 / 127.5, (300, 300), (127.5, 127.5, 127.5), swapRB=True, crop=False)
@@ -136,7 +168,7 @@ class HAPCamera(camera.Camera, Accessory):
 
         for i in range(detections.shape[2]):
             confidence = detections[0, 0, i, 2]
-            if confidence > 0.3:
+            if confidence > 0.5:
                 class_id = int(detections[0, 0, i, 1])
                 # If you want to be specific about the detected object (e.g., person), you can check class_id.
                 # For example, in COCO dataset, class_id = 1 typically means "person".
@@ -157,6 +189,7 @@ class HAPCamera(camera.Camera, Accessory):
             
             filename = f"{daily_path}/{formatted_time}.jpg"
             cv2.imwrite(filename, frame)
+            self.copy_to_secondary_directory(filename, is_video=False)
 
         elif not motion_detected and self.motion_detected:
             print("Motion stopped")
@@ -186,6 +219,9 @@ class HAPCamera(camera.Camera, Accessory):
             # Check for old videos and images once a day
             current_time = time.time()
             if current_time - last_cleanup > 24 * 60 * 60:  # 24 hours in seconds
+                # Sync the directories before deleting old files
+                self.sync_directories(VIDEO_DIR, SECONDARY_DIR_VIDEO)
+                self.sync_directories(IMAGE_DIR, SECONDARY_DIR_IMAGE)
                 self.delete_old_videos()
                 self.delete_old_images()  # Call the new method here
                 last_cleanup = current_time
