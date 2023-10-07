@@ -3,6 +3,7 @@ import signal
 import subprocess
 import cv2
 import os
+import numpy as np
 
 from pyhap.accessory_driver import AccessoryDriver
 from pyhap.accessory import Accessory
@@ -169,13 +170,17 @@ class HAPCamera(camera.Camera, Accessory):
 
         for i in range(detections.shape[2]):
             confidence = detections[0, 0, i, 2]
-            if confidence > 0.5:
+            if confidence > 0.6:
                 class_id = int(detections[0, 0, i, 1])
-                # If you want to be specific about the detected object (e.g., person), you can check class_id.
-                # For example, in COCO dataset, class_id = 1 typically means "person".
-                # You can expand this to detect more object types if needed.
-                if class_id == 1:
+                if class_id == 1:  # person
                     motion_detected = True
+
+                    # Get the bounding box coordinates
+                    box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+                    (startX, startY, endX, endY) = box.astype("int")
+
+                    # Draw the bounding box
+                    cv2.rectangle(frame, (startX, startY), (endX, endY), (0, 0, 255), 2)
                     break
 
         if motion_detected and not self.motion_detected:
