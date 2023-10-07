@@ -88,6 +88,18 @@ class HAPCamera(camera.Camera, Accessory):
         # Create a Motion Sensor service
         serv_motion = self.add_preload_service('MotionSensor')
         self.char_detected = serv_motion.configure_char('MotionDetected')
+   
+    #function that backs up to NAS
+    def copy_to_secondary_directory(self, source_file_path, is_video=True):
+        if is_video:
+            rel_path = os.path.relpath(source_file_path, VIDEO_DIR)
+            dest_path = os.path.join(SECONDARY_DIR_VIDEO, rel_path)
+        else:
+            rel_path = os.path.relpath(source_file_path, IMAGE_DIR)
+            dest_path = os.path.join(SECONDARY_DIR_IMAGE, rel_path)
+
+        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+        shutil.copy2(source_file_path, dest_path)
 
     def start_recording(self, filename):
         # Ensure the directory exists
@@ -113,7 +125,6 @@ class HAPCamera(camera.Camera, Accessory):
         if self.recording_process:
             self.recording_process.terminate()
             self.recording_process = None
-            self.recording_process.wait()  # Wait for the process to complete
             self.copy_to_secondary_directory(self.current_video_file_path, is_video=True) 
 
     def delete_old_files_from_directory(self, directory):
@@ -134,7 +145,7 @@ class HAPCamera(camera.Camera, Accessory):
     def delete_old_images(self):
         self.delete_old_files_from_directory(IMAGE_DIR)
 
-    def sync_directories(primary_dir, secondary_dir):
+    def sync_directories(self, primary_dir, secondary_dir):
         for root, _, files in os.walk(primary_dir):
             for file in files:
                 primary_path = os.path.join(root, file)
@@ -145,17 +156,7 @@ class HAPCamera(camera.Camera, Accessory):
                     os.makedirs(os.path.dirname(secondary_path), exist_ok=True)
                     shutil.copy2(primary_path, secondary_path)
                     print(f"Copied missing file {primary_path} to {secondary_path}")
-    #function that backs up to NAS
-    def copy_to_secondary_directory(source_file_path, is_video=True):
-        if is_video:
-            rel_path = os.path.relpath(source_file_path, VIDEO_DIR)
-            dest_path = os.path.join(SECONDARY_DIR_VIDEO, rel_path)
-        else:
-            rel_path = os.path.relpath(source_file_path, IMAGE_DIR)
-            dest_path = os.path.join(SECONDARY_DIR_IMAGE, rel_path)
 
-        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-        shutil.copy2(source_file_path, dest_path)
 
 
     def motion_detection(self, frame):
