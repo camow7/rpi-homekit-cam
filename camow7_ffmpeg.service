@@ -1,0 +1,14 @@
+[Unit]
+Description=Camow7 ffmpeg Camera Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/camow7/rpi-homekit-cam/main.py-cam/
+ExecStart=/usr/bin/ffmpeg -f video4linux2 -i /dev/video0 -vcodec copy -f v4l2 /dev/video100
+User=camow7
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
