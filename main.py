@@ -19,8 +19,8 @@ DEV_VIDEO = '/dev/video100'
 SCALE = '1280x720'
 DATE_CAPTION = '%A %-d %B %Y, %X'
 IP_ADDRESS = '192.168.0.196'
-IMAGE_DIR = '/home/camow7/rpi-homekit-cam/nas/stills'
-VIDEO_DIR = '/home/camow7/rpi-homekit-cam/nas/video'
+IMAGE_DIR = '/home/camow7/rpi-homekit-cam/local/stills'
+VIDEO_DIR = '/home/camow7/rpi-homekit-cam/local/video'
 
 options = {
     "video": {
@@ -85,6 +85,15 @@ class HAPCamera(camera.Camera, Accessory):
         self.char_detected = serv_motion.configure_char('MotionDetected')
 
     def start_recording(self, filename):
+        # Ensure the directory exists
+        directory = os.path.dirname(filename)
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+        print("Full video path to write:", os.path.abspath(filename))
+        print("Directory exists:", os.path.exists(directory))
+
+
         cmd = [
             'ffmpeg', '-f', 'video4linux2', '-i', DEV_VIDEO,
             '-c:v', 'h264_v4l2m2m',  # H.264 video codec
@@ -99,23 +108,23 @@ class HAPCamera(camera.Camera, Accessory):
             self.recording_process.terminate()
             self.recording_process = None
 
-    def delete_old_videos(self):
+    def delete_old_files_from_directory(self, directory):
         current_time = time.time()
-        for video_file in os.listdir(VIDEO_DIR):
-            file_path = os.path.join(VIDEO_DIR, video_file)
-            file_age = current_time - os.path.getctime(file_path)  # File age in seconds
-            if file_age > 30 * 24 * 60 * 60:  # 30 days in seconds
-                os.remove(file_path)
-                print(f"Deleted old video: {file_path}")
 
-    def delete_old_images(self):  # New method
-        current_time = time.time()
-        for image_file in os.listdir(IMAGE_DIR):
-            file_path = os.path.join(IMAGE_DIR, image_file)
-            file_age = current_time - os.path.getctime(file_path)  # File age in seconds
-            if file_age > 30 * 24 * 60 * 60:  # 30 days in seconds
-                os.remove(file_path)
-                print(f"Deleted old image: {file_path}")
+        for root, dirs, files in os.walk(directory, topdown=False):
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
+                file_age = current_time - os.path.getctime(file_path)
+                
+                if file_age > 30 * 24 * 60 * 60:  # 30 days in seconds
+                    os.remove(file_path)
+                    print(f"Deleted old file: {file_path}")
+
+    def delete_old_videos(self):
+        self.delete_old_files_from_directory(VIDEO_DIR)
+
+    def delete_old_images(self):
+        self.delete_old_files_from_directory(IMAGE_DIR)
 
     def motion_detection(self, frame):
         h, w, _ = frame.shape
@@ -139,10 +148,16 @@ class HAPCamera(camera.Camera, Accessory):
         if motion_detected and not self.motion_detected:
             print("Motion detected")
             self.char_detected.set_value(True)
-            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"{IMAGE_DIR}/{timestamp}.jpg"
+            timestamp = datetime.datetime.now()
+            formatted_time = timestamp.strftime('%Y%m%d_%H%M%S')
+            daily_dir = timestamp.strftime('%Y/%m/%d')
+            
+            daily_path = os.path.join(IMAGE_DIR, daily_dir)
+            os.makedirs(daily_path, exist_ok=True)
+            
+            filename = f"{daily_path}/{formatted_time}.jpg"
             cv2.imwrite(filename, frame)
-            #print(os.listdir('./nas'))
+
         elif not motion_detected and self.motion_detected:
             print("Motion stopped")
             self.char_detected.set_value(False)
@@ -179,14 +194,18 @@ class HAPCamera(camera.Camera, Accessory):
                 self.motion_detection(frame)
                 self.snapshot = frame
 
-            # Check if the ffmpeg process is done (10 seconds has passed)
-            if self.recording_process and self.recording_process.poll() is not None:
-                self.stop_recording()
-                
-                # Start a new recording
-                timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-                video_filename = f"{VIDEO_DIR}/{timestamp}_video.mp4"
-                self.start_recording(video_filename)
+        if self.recording_process and self.recording_process.poll() is not None:
+            self.stop_recording()
+
+            timestamp = datetime.datetime.now()
+            formatted_time = timestamp.strftime('%Y%m%d_%H%M%S')
+            daily_dir = timestamp.strftime('%Y/%m/%d')
+            
+            daily_path = os.path.join(VIDEO_DIR, daily_dir)
+            os.makedirs(daily_path, exist_ok=True)
+            
+            video_filename = f"{daily_path}/{formatted_time}_video.mp4"
+            self.start_recording(video_filename)
 
         self.cap.release()
         cv2.destroyAllWindows()
@@ -202,8 +221,14 @@ if __name__ == "__main__":
     
     # Start the initial recording when the program starts
     acc = HAPCamera(options, driver, "Camera")
-    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    video_filename = f"{VIDEO_DIR}/{timestamp}_video.mp4"
+    timestamp = datetime.datetime.now()
+    formatted_time = timestamp.strftime('%Y%m%d_%H%M%S')
+    daily_dir = timestamp.strftime('%Y/%m/%d')
+    
+    daily_path = os.path.join(VIDEO_DIR, daily_dir)
+    os.makedirs(daily_path, exist_ok=True)
+    
+    video_filename = f"{daily_path}/{formatted_time}_video.mp4"
     acc.start_recording(video_filename)
 
     driver.add_accessory(accessory=acc)
