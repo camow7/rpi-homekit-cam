@@ -97,7 +97,7 @@ class HAPCamera(camera.Camera, Accessory):
         cmd = [
             'ffmpeg', '-f', 'video4linux2', '-i', DEV_VIDEO,
             '-c:v', 'h264_v4l2m2m',  # H.264 video codec
-            '-t', '00:01:00',  # Set recording time to 10 seconds
+            '-t', '00:05:00',  # Set recording time 5 minutes
             filename
         ]
         self.recording_process = subprocess.Popen(cmd)
@@ -136,7 +136,7 @@ class HAPCamera(camera.Camera, Accessory):
 
         for i in range(detections.shape[2]):
             confidence = detections[0, 0, i, 2]
-            if confidence > 0.5:
+            if confidence > 0.3:
                 class_id = int(detections[0, 0, i, 1])
                 # If you want to be specific about the detected object (e.g., person), you can check class_id.
                 # For example, in COCO dataset, class_id = 1 typically means "person".
@@ -194,18 +194,18 @@ class HAPCamera(camera.Camera, Accessory):
                 self.motion_detection(frame)
                 self.snapshot = frame
 
-        if self.recording_process and self.recording_process.poll() is not None:
-            self.stop_recording()
+            if self.recording_process and self.recording_process.poll() is not None:
+                self.stop_recording()
 
-            timestamp = datetime.datetime.now()
-            formatted_time = timestamp.strftime('%Y%m%d_%H%M%S')
-            daily_dir = timestamp.strftime('%Y/%m/%d')
-            
-            daily_path = os.path.join(VIDEO_DIR, daily_dir)
-            os.makedirs(daily_path, exist_ok=True)
-            
-            video_filename = f"{daily_path}/{formatted_time}_video.mp4"
-            self.start_recording(video_filename)
+                timestamp = datetime.datetime.now()
+                formatted_time = timestamp.strftime('%Y%m%d_%H%M%S')
+                daily_dir = timestamp.strftime('%Y/%m/%d')
+                
+                daily_path = os.path.join(VIDEO_DIR, daily_dir)
+                os.makedirs(daily_path, exist_ok=True)
+                
+                video_filename = f"{daily_path}/{formatted_time}_video.mp4"
+                self.start_recording(video_filename)
 
         self.cap.release()
         cv2.destroyAllWindows()
