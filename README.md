@@ -21,7 +21,19 @@
  1. `ffmpeg -f video4linux2 -i /dev/video0 -vcodec copy -f v4l2 /dev/video100`
  1. open second terminal and cd into git repo then run `python3 ./main.py`
 
-## Setup Service
+## Creating Extra Video Streams
+1. `sudo nano /etc/modprobe.d/v4l2loopback.conf`
+1. Add this so it creates extra video devices on boot `options v4l2loopback video_nr=99,100`
+
+## Setup FFMPEG Service
+```
+sudo cp camow7_ffmpeg.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable camow7_ffmpeg.service
+sudo systemctl start camow7_ffmpeg.service
+```
+
+## Setup Camera Service
 First open the `camera.service` file and make sure the path to `main.py` is correct for your system. Then run the command below.
 
 ```
@@ -48,9 +60,7 @@ If you want to copy it to multiple video device use
 ffmpeg -f video4linux2 -i /dev/video0 -vcodec copy -map 0 -f v4l2 /dev/video99 -vcodec copy -map 0 -f v4l2 /dev/video100
 ```
 
-## Creating Extra Video Streams
-1. `sudo nano /etc/modprobe.d/v4l2loopback.conf`
-1. Add this so it creates extra video devices on boot `options v4l2loopback video_nr=99,100`
+
 
 
 ## Troubleshooting

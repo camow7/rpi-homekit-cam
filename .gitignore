@@ -8,6 +8,7 @@ __pycache__/
 
 accessory.state
 nas
+local
 # Distribution / packaging
 .Python
 build/
